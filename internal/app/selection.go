@@ -3,16 +3,15 @@ package app
 import (
 	"github.com/brohd11/bubblestack/components"
 	"github.com/brohd11/bubblestack/core"
-	"github.com/brohd11/golaunch/internal/selection"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// SelectionScreen is golaunch's first tab: a short list of the ways to build a selection from the
-// root directory (the dir itself, its child dirs, or its child files). Picking a row resolves the
-// paths and stores them on the shared Ctx; the header reflects the new selection immediately, and
-// the Scripts tab reads it when a script is launched.
+// SelectionScreen is golaunch's first tab: two rows — Build selection (a form of dir/file/recursive/
+// current toggles that resolves the candidate paths) and Refine selection (a checklist that toggles
+// each captured path on/off). The enabled subset is what the Scripts tab launches against; the
+// header reflects the running selection. R (shift+R) opens the refine checklist from here too.
 type SelectionScreen struct {
 	list list.Model
 	root string // the directory this tab concerns; enables the global Terminal/OpenDir keys
@@ -26,38 +25,26 @@ var (
 
 func NewSelectionScreen(sh *core.Shared) *SelectionScreen {
 	return &SelectionScreen{
-		list: core.NewSelectList(selectionItems(), TitleSelection),
+		list: core.NewSelectList(selectionItems(), TitleSelection, refineKey),
 		root: Of(sh).Root,
 	}
 }
 
-// selectionItems builds the three self-dispatching mode rows. Each Pick resolves the mode against
-// the root and records it as the current selection.
+// selectionItems builds the two self-dispatching rows: Build opens the toggle form, Refine opens
+// the checklist over whatever the last build captured.
 func selectionItems() []list.Item {
-	mk := func(mode selection.Mode, desc string) list.Item {
-		return components.Item{
-			Name: mode.Label(),
-			Desc: desc,
-			Pick: func(sh *core.Shared) core.Action { return applySelection(sh, mode) },
-		}
-	}
 	return []list.Item{
-		mk(selection.CurrentDir, "the root directory itself"),
-		mk(selection.ChildDirs, "the root's immediate subdirectories"),
-		mk(selection.ChildFiles, "the root's immediate files"),
+		components.Item{
+			Name: "Build selection",
+			Desc: "choose dirs / files / recursive / current, then resolve the paths",
+			Pick: func(sh *core.Shared) core.Action { return core.Push(buildForm(sh)) },
+		},
+		components.Item{
+			Name: "Refine selection",
+			Desc: "toggle each captured path on/off (or press R anywhere)",
+			Pick: func(sh *core.Shared) core.Action { return pushRefine(sh) },
+		},
 	}
-}
-
-// applySelection resolves mode against the root and stores it, reporting the outcome on the status
-// line (the header shows the running summary).
-func applySelection(sh *core.Shared, mode selection.Mode) core.Action {
-	c := Of(sh)
-	sel, err := selection.Resolve(c.Root, mode)
-	if err != nil {
-		return core.StatusErr(err)
-	}
-	c.Sel = sel
-	return core.SetStatus("selection: " + sel.Summary())
 }
 
 func (s *SelectionScreen) Init(*core.Shared) tea.Cmd { return nil }
@@ -71,5 +58,10 @@ func (s *SelectionScreen) CrumbLabel(bool) string           { return TitleSelect
 func (s *SelectionScreen) LocateDir() (string, bool)        { return s.root, s.root != "" }
 
 func (s *SelectionScreen) Update(sh *core.Shared, msg tea.Msg) (core.Screen, core.Action) {
+	// R (shift+R) opens the refine checklist, gated behind the filter guard so it doesn't hijack
+	// filter typing.
+	if k, ok := msg.(tea.KeyMsg); ok && !s.Filtering() && core.MatchKey(k.String(), refineKey) {
+		return s, pushRefine(sh)
+	}
 	return s, components.RootUpdate(sh, &s.list, msg)
 }

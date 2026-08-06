@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// setupTree builds: root/{sub1/,sub2/,a.txt,b.txt} with sub1/nested.txt one level down, so tests
+// can distinguish immediate vs recursive gathering.
 func setupTree(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -14,7 +16,7 @@ func setupTree(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	for _, f := range []string{"a.txt", "b.txt", "c.txt"} {
+	for _, f := range []string{"a.txt", "b.txt", filepath.Join("sub1", "nested.txt")} {
 		if err := os.WriteFile(filepath.Join(root, f), nil, 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -22,47 +24,95 @@ func setupTree(t *testing.T) string {
 	return root
 }
 
-func TestResolveCurrentDir(t *testing.T) {
+func paths(items []Item) []string {
+	out := make([]string, len(items))
+	for i, it := range items {
+		out[i] = it.Path
+	}
+	return out
+}
+
+func TestResolveImmediateFiles(t *testing.T) {
 	root := setupTree(t)
-	sel, err := Resolve(root, CurrentDir)
+	items, err := Resolve(root, Spec{Files: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sel.Paths) != 1 || sel.Paths[0] != root {
-		t.Errorf("Paths = %v, want [%s]", sel.Paths, root)
+	if len(items) != 2 { // a.txt, b.txt — not sub1/nested.txt
+		t.Fatalf("got %d, want 2: %v", len(items), paths(items))
+	}
+	for _, it := range items {
+		if it.IsDir || !it.On {
+			t.Errorf("file item wrong flags: %+v", it)
+		}
 	}
 }
 
-func TestResolveChildDirs(t *testing.T) {
+func TestResolveImmediateDirs(t *testing.T) {
 	root := setupTree(t)
-	sel, err := Resolve(root, ChildDirs)
+	items, err := Resolve(root, Spec{Dirs: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sel.Paths) != 2 {
-		t.Fatalf("got %d dirs, want 2: %v", len(sel.Paths), sel.Paths)
-	}
-	if sel.Paths[0] != filepath.Join(root, "sub1") {
-		t.Errorf("Paths not sorted/absolute: %v", sel.Paths)
+	if len(items) != 2 { // sub1, sub2
+		t.Fatalf("got %d, want 2: %v", len(items), paths(items))
 	}
 }
 
-func TestResolveChildFiles(t *testing.T) {
+func TestResolveRecursiveFiles(t *testing.T) {
 	root := setupTree(t)
-	sel, err := Resolve(root, ChildFiles)
+	items, err := Resolve(root, Spec{Files: true, Recursive: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sel.Paths) != 3 {
-		t.Errorf("got %d files, want 3: %v", len(sel.Paths), sel.Paths)
+	if len(items) != 3 { // a.txt, b.txt, sub1/nested.txt
+		t.Fatalf("got %d, want 3: %v", len(items), paths(items))
 	}
-	if sel.Summary() != "Child files (3)" {
-		t.Errorf("Summary = %q, want Child files (3)", sel.Summary())
+}
+
+func TestResolveDirsAndFiles(t *testing.T) {
+	root := setupTree(t)
+	items, err := Resolve(root, Spec{Dirs: true, Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 4 { // sub1, sub2, a.txt, b.txt
+		t.Fatalf("got %d, want 4: %v", len(items), paths(items))
+	}
+}
+
+func TestResolveCurrentAddsRoot(t *testing.T) {
+	root := setupTree(t)
+	items, err := Resolve(root, Spec{Current: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Path != root || !items[0].IsDir {
+		t.Fatalf("got %v, want [%s] (dir)", paths(items), root)
 	}
 }
 
 func TestResolveMissingDir(t *testing.T) {
-	if _, err := Resolve(filepath.Join(t.TempDir(), "nope"), ChildFiles); err == nil {
+	if _, err := Resolve(filepath.Join(t.TempDir(), "nope"), Spec{Files: true}); err == nil {
 		t.Error("expected error for missing directory")
+	}
+}
+
+func TestPathsAndSummary(t *testing.T) {
+	root := setupTree(t)
+	items, _ := Resolve(root, Spec{Files: true, Dirs: true})
+	sel := Selection{Items: items}
+	if got := len(sel.Paths()); got != 4 {
+		t.Fatalf("all enabled: Paths len = %d, want 4", got)
+	}
+	if sel.Summary() != "4 of 4 paths" {
+		t.Errorf("Summary = %q, want 4 of 4 paths", sel.Summary())
+	}
+	sel.Items[0].On = false
+	if got := len(sel.Paths()); got != 3 {
+		t.Errorf("one disabled: Paths len = %d, want 3", got)
+	}
+	if sel.Summary() != "3 of 4 paths" {
+		t.Errorf("Summary = %q, want 3 of 4 paths", sel.Summary())
 	}
 }

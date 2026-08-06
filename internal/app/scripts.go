@@ -7,6 +7,7 @@ import (
 	"github.com/brohd11/bubblestack/core"
 	"github.com/brohd11/golaunch/internal/scripts"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -33,7 +34,7 @@ func NewScriptsScreen(sh *core.Shared) *ScriptsScreen {
 	c := Of(sh)
 	tree := scripts.BuildTree(c.Scripts)
 	return &ScriptsScreen{
-		list: core.NewSelectList(nodeItems(c.Root, tree), TitleScripts),
+		list: core.NewSelectList(nodeItems(c.Root, tree), TitleScripts, refineKey),
 		root: c.Root,
 	}
 }
@@ -53,6 +54,15 @@ func nodeItems(root string, node *scripts.Tree) []list.Item {
 					Title: child.Name,
 					Crumb: child.Name,
 					Dir:   root,
+					Help:  []key.Binding{refineKey},
+					// R (shift+R) opens the refine checklist from inside a script submenu — a quick
+					// tweak without backing out to the Selection tab.
+					OnKey: func(sh *core.Shared, k string, _ list.Item) (core.Action, bool) {
+						if core.MatchKey(k, refineKey) {
+							return pushRefine(sh), true
+						}
+						return core.Action{}, false
+					},
 				}))
 			},
 		})
@@ -64,7 +74,7 @@ func nodeItems(root string, node *scripts.Tree) []list.Item {
 			Desc: scriptDesc(s),
 			Pick: func(sh *core.Shared) core.Action {
 				c := Of(sh)
-				return scripts.Launch(sh, s, c.Root, c.Sel.Paths)
+				return scripts.Launch(sh, s, c.Root, c.Sel.Paths())
 			},
 		})
 	}
@@ -103,5 +113,10 @@ func (s *ScriptsScreen) CrumbLabel(bool) string           { return TitleScripts 
 func (s *ScriptsScreen) LocateDir() (string, bool)        { return s.root, s.root != "" }
 
 func (s *ScriptsScreen) Update(sh *core.Shared, msg tea.Msg) (core.Screen, core.Action) {
+	// R (shift+R) opens the refine checklist, gated behind the filter guard so it doesn't hijack
+	// filter typing.
+	if k, ok := msg.(tea.KeyMsg); ok && !s.Filtering() && core.MatchKey(k.String(), refineKey) {
+		return s, pushRefine(sh)
+	}
 	return s, components.RootUpdate(sh, &s.list, msg)
 }

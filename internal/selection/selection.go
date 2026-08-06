@@ -1,80 +1,130 @@
-// Package selection models the set of paths a script runs against. A Selection is one Mode (the
-// whole root directory, its immediate child directories, or its immediate child files) resolved to
-// a concrete []string. This is the first-steps shape: choosing a mode replaces the selection
-// wholesale — per-item checklists and saved selections come later.
+// Package selection models the set of paths a script runs against. A Selection is built in two
+// stages: a Spec (which kinds of path under the root to gather) resolves to a candidate list of
+// Items, and each Item then carries an On flag the Refine checklist toggles. The enabled subset
+// (Paths) is what actually reaches a script.
 package selection
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 )
 
-// Mode is which set of paths under the root a Selection covers.
-type Mode int
-
-const (
-	None       Mode = iota // nothing selected yet
-	CurrentDir             // the root directory itself (one path)
-	ChildDirs              // the root's immediate subdirectories
-	ChildFiles             // the root's immediate files
-)
-
-// Label is the human name for a mode, shown in the Selection list and header.
-func (m Mode) Label() string {
-	switch m {
-	case CurrentDir:
-		return "Current dir"
-	case ChildDirs:
-		return "Child dirs"
-	case ChildFiles:
-		return "Child files"
-	default:
-		return "none"
-	}
+// Spec is the set of build flags chosen in the Build form: which kinds of path to gather from the
+// root, and whether to descend recursively. Dirs and Files are independent (either or both);
+// Current adds the root directory itself.
+type Spec struct {
+	Dirs      bool
+	Files     bool
+	Recursive bool
+	Current   bool
 }
 
-// Selection is a resolved set of paths plus the mode that produced it. The zero value is an empty
-// selection (Mode None), which the Scripts tab treats as "nothing to run against".
+// Any reports whether the spec would gather anything at all.
+func (s Spec) Any() bool { return s.Dirs || s.Files || s.Current }
+
+// Item is one candidate path plus whether it is currently enabled (toggled in the Refine
+// checklist). IsDir drives the checklist's trailing-"/" marker.
+type Item struct {
+	Path  string
+	IsDir bool
+	On    bool
+}
+
+// Selection is the resolved candidate set (Items) plus the Spec that produced it. The zero value
+// is empty. Paths returns the enabled subset — the list handed to a script.
 type Selection struct {
-	Mode  Mode
-	Paths []string
+	Spec  Spec
+	Items []Item
 }
 
-// Resolve reads root and returns the paths for mode: the root itself for CurrentDir, or its
-// immediate child dirs/files (sorted, absolute) for the child modes. A read error is returned so
-// the caller can surface it; hidden entries (dot-prefixed) are kept — the user chose this dir.
-func Resolve(root string, mode Mode) (Selection, error) {
-	if mode == CurrentDir {
-		return Selection{Mode: mode, Paths: []string{root}}, nil
+// Resolve gathers the candidate paths under root for spec, each enabled by default. Current adds
+// the root itself; otherwise the root's immediate children are read, or every descendant when
+// Recursive. Dirs keeps directories, Files keeps files. Results are sorted and absolute. A read
+// error on the root is returned; errors walking individual descendants are skipped so one
+// unreadable subdir doesn't abort the whole build.
+func Resolve(root string, spec Spec) ([]Item, error) {
+	var items []Item
+	if spec.Current {
+		items = append(items, Item{Path: root, IsDir: true, On: true})
 	}
-	if mode == None {
-		return Selection{}, nil
-	}
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return Selection{}, err
-	}
-	wantDir := mode == ChildDirs
-	var paths []string
-	for _, e := range entries {
-		if e.IsDir() == wantDir {
-			paths = append(paths, filepath.Join(root, e.Name()))
+
+	if spec.Dirs || spec.Files {
+		var err error
+		if spec.Recursive {
+			err = walkDescendants(root, spec, &items)
+		} else {
+			err = readImmediate(root, spec, &items)
+		}
+		if err != nil {
+			return nil, err
 		}
 	}
-	sort.Strings(paths)
-	return Selection{Mode: mode, Paths: paths}, nil
+
+	sort.Slice(items, func(i, j int) bool { return items[i].Path < items[j].Path })
+	return items, nil
 }
 
-// Summary is a one-line description of the selection for the header, e.g. "Child files (5)". An
-// empty selection reads as "none".
+// readImmediate appends the root's immediate children matching spec.
+func readImmediate(root string, spec Spec, items *[]Item) error {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if keep(e.IsDir(), spec) {
+			*items = append(*items, Item{Path: filepath.Join(root, e.Name()), IsDir: e.IsDir(), On: true})
+		}
+	}
+	return nil
+}
+
+// walkDescendants appends every descendant of root matching spec (the root itself is excluded —
+// Current handles it). A per-entry error is swallowed so an unreadable subtree is skipped rather
+// than failing the whole build.
+func walkDescendants(root string, spec Spec, items *[]Item) error {
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable entries
+		}
+		if path == root {
+			return nil
+		}
+		if keep(d.IsDir(), spec) {
+			*items = append(*items, Item{Path: path, IsDir: d.IsDir(), On: true})
+		}
+		return nil
+	})
+}
+
+// keep reports whether an entry of the given kind is wanted by spec.
+func keep(isDir bool, spec Spec) bool {
+	if isDir {
+		return spec.Dirs
+	}
+	return spec.Files
+}
+
+// Paths returns the enabled paths — the final list a script receives.
+func (s Selection) Paths() []string {
+	var out []string
+	for _, it := range s.Items {
+		if it.On {
+			out = append(out, it.Path)
+		}
+	}
+	return out
+}
+
+// Summary is a one-line description for the header: enabled count over candidate count, or "none".
 func (s Selection) Summary() string {
-	if s.Mode == None {
+	if len(s.Items) == 0 {
 		return "none"
 	}
-	return fmt.Sprintf("%s (%d)", s.Mode.Label(), len(s.Paths))
+	return fmt.Sprintf("%d of %d paths", len(s.Paths()), len(s.Items))
 }
 
-// Empty reports whether the selection holds no paths.
-func (s Selection) Empty() bool { return len(s.Paths) == 0 }
+// Empty reports whether there are no candidate paths at all.
+func (s Selection) Empty() bool { return len(s.Items) == 0 }
