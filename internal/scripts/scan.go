@@ -1,6 +1,7 @@
 package scripts
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -31,15 +32,19 @@ var interpByExt = map[string][]string{
 }
 
 // Scan reads each directory (non-recursively) for launchable scripts: files with a known
-// extension, or any executable file (run directly). Unreadable directories are skipped, results
-// are deduplicated by absolute path, and the whole set is sorted by display name. Metadata is
-// parsed per file; a header-parse error drops that one script rather than failing the scan.
-func Scan(dirs []string) []Script {
+// extension, or any executable file (run directly). Results are deduplicated by absolute
+// path and sorted by display name. What couldn't be read — an unreadable directory, a
+// script whose header fails to parse — comes back as one error per problem rather than
+// failing the scan or vanishing silently: a typo in one script's header should cost that
+// script a menu row, not its invisibility without a trace.
+func Scan(dirs []string) ([]Script, []error) {
 	seen := map[string]bool{}
 	var out []Script
+	var problems []error
 	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
+			problems = append(problems, fmt.Errorf("reading %s: %w", dir, err))
 			continue
 		}
 		for _, e := range entries {
@@ -56,6 +61,7 @@ func Scan(dirs []string) []Script {
 			}
 			meta, err := ParseHeader(abs)
 			if err != nil {
+				problems = append(problems, fmt.Errorf("%s: %w", abs, err))
 				continue
 			}
 			seen[abs] = true
@@ -63,7 +69,7 @@ func Scan(dirs []string) []Script {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].DisplayName() < out[j].DisplayName() })
-	return out
+	return out, problems
 }
 
 // interpFor returns the interpreter argv for a file and whether it counts as a script: a known

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/brohd11/bubblestack/core"
 	"github.com/brohd11/golaunch/internal/config"
 	"github.com/brohd11/golaunch/internal/scripts"
@@ -19,7 +21,8 @@ type Ctx struct {
 }
 
 // New builds the context and performs the initial script scan, so the Scripts tab has rows on
-// first render.
+// first render. Startup scan problems go unreported here (no status line exists yet); the same
+// problems surface on the first manual refresh, which reports what Rescan returns.
 func New(root, version string) *Ctx {
 	c := &Ctx{Root: root, Version: version}
 	c.Rescan()
@@ -29,14 +32,17 @@ func New(root, version string) *Ctx {
 // Of recovers the golaunch context from a Shared. Screens call c := app.Of(sh).
 func Of(sh *core.Shared) *Ctx { return core.App[Ctx](sh) }
 
-// Rescan re-reads the configured script directories. A config read error leaves the previous list
-// intact rather than blanking the Scripts tab.
-func (c *Ctx) Rescan() {
+// Rescan re-reads the configured script directories and returns what went wrong: a config
+// read error (the previous list stays intact rather than blanking the Scripts tab) or one
+// error per unreadable directory / unparsable script header. Nil means a clean scan.
+func (c *Ctx) Rescan() []error {
 	cfg, err := config.Load()
 	if err != nil {
-		return
+		return []error{fmt.Errorf("loading config: %w", err)}
 	}
-	c.Scripts = scripts.Scan(cfg.ScriptDirs)
+	found, problems := scripts.Scan(cfg.ScriptDirs)
+	c.Scripts = found
+	return problems
 }
 
 // Receive handles app-level broadcasts. On a theme change it returns RefreshRoots so the tab roots

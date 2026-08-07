@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/brohd11/bubblestack"
 	"github.com/brohd11/bubblestack/components"
 	"github.com/brohd11/bubblestack/core"
@@ -39,11 +41,20 @@ func Run(root, version string) error {
 }
 
 // refreshAction rescans the script directories and rebuilds the tab roots so the Scripts tab picks
-// up added/removed scripts and edited metadata.
+// up added/removed scripts and edited metadata. Scan problems (an unreadable directory, a script
+// whose header fails to parse, a broken config) are logged individually and counted in the status,
+// so a script that vanishes from the menu leaves a trace.
 func refreshAction(sh *core.Shared) core.Action {
-	Of(sh).Rescan()
+	problems := Of(sh).Rescan()
+	for _, p := range problems {
+		sh.Log("rescan: " + p.Error())
+	}
+	status := "rescanned scripts"
+	if len(problems) > 0 {
+		status = fmt.Sprintf("rescanned scripts — %d problem(s), see log", len(problems))
+	}
 	return core.Seq(
-		core.SetStatus("rescanned scripts"),
+		core.SetStatus(status),
 		core.RefreshRoots(),
 	)
 }

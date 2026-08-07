@@ -1,6 +1,10 @@
 package scripts
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestBuildTreeNesting(t *testing.T) {
 	scripts := []Script{
@@ -37,5 +41,26 @@ func TestDisplayNameFallsBackToFilename(t *testing.T) {
 	s.Meta.Name = "Pretty"
 	if got := s.DisplayName(); got != "Pretty" {
 		t.Errorf("DisplayName = %q, want Pretty", got)
+	}
+}
+
+func TestScanReportsProblems(t *testing.T) {
+	dir := t.TempDir()
+	good := filepath.Join(dir, "good.sh")
+	if err := os.WriteFile(good, []byte("# name=Good\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bad := filepath.Join(dir, "bad.sh")
+	if err := os.WriteFile(bad, []byte("# name=Bad\n"), 0o000); err != nil { // unreadable: header parse fails
+		t.Fatal(err)
+	}
+	missing := filepath.Join(dir, "no-such-dir")
+
+	got, problems := Scan([]string{dir, missing})
+	if len(got) != 1 || got[0].Meta.Name != "Good" {
+		t.Errorf("scripts = %+v, want just Good", got)
+	}
+	if len(problems) != 2 {
+		t.Fatalf("problems = %v, want 2 (unreadable script + missing dir)", problems)
 	}
 }
