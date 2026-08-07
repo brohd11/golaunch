@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	github.com/brohd11/bubblestack v0.1.4
+	github.com/brohd11/goutil v0.1.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/spf13/cobra v1.10.2

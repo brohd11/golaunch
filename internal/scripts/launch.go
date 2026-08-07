@@ -7,6 +7,7 @@ import (
 	"github.com/brohd11/bubblestack/components"
 	"github.com/brohd11/bubblestack/core"
 	"github.com/brohd11/bubblestack/sysopen"
+	"github.com/brohd11/goutil/stream"
 )
 
 // Launch runs a script against the selected paths, rooted at root (the script's working directory).
@@ -32,7 +33,7 @@ func Launch(sh *core.Shared, s Script, root string, paths []string) core.Action 
 	label := "run " + s.DisplayName()
 	run := func(ctx context.Context, sh *core.Shared, report func(string, ...any), done chan<- core.TaskEvent) {
 		report("$ %s", strings.Join(argv, " "))
-		done <- core.TaskEvent{Done: true, Err: streamCmd(ctx, root, report, argv...)}
+		done <- core.TaskEvent{Done: true, Err: stream.Cmd(ctx, root, nil, report, argv...)}
 	}
 	onDone := func(sh *core.Shared, ev core.TaskEvent) core.Action {
 		if ev.Err != nil {
