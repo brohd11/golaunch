@@ -21,6 +21,9 @@ const (
 // one against that selection). It wires the persistent header, a log/output pane (streamed script
 // output lands there), and a status line. The global Refresh key rescans the script directories;
 // the global Terminal/OpenDir keys act on the root directory (each tab root is a DirLocator).
+// "a" opens the Actions menu (theme, self-update, rescan). The Init startup command runs a
+// background self-update check that notes "update available" on the status line (silent
+// otherwise).
 func Run(root, version string) error {
 	if _, err := config.Ensure(); err != nil {
 		return err
@@ -34,6 +37,7 @@ func Run(root, version string) error {
 			{Title: TitleSelection, New: func(sh *core.Shared) core.Screen { return NewSelectionScreen(sh) }},
 			{Title: TitleScripts, New: func(sh *core.Shared) core.Screen { return NewScriptsScreen(sh) }},
 		},
+		Init:           SelfUpdateCheckCmd,
 		RefreshAction:  func(sh *core.Shared) core.Action { return refreshAction(sh) },
 		TerminalAction: func(dir string) core.Action { return sysopen.Terminal(dir) },
 		OpenDirAction:  func(dir string) core.Action { return sysopen.Path(dir, false) },
