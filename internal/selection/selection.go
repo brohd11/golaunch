@@ -67,6 +67,38 @@ func Resolve(root string, spec Spec) ([]Item, error) {
 	return items, nil
 }
 
+// Rebuild resolves spec under root and returns the replacement Selection, carrying the receiver's
+// per-path On flags onto any path that survives — so flipping Recursive on and back off doesn't
+// silently undo a refinement. Paths new to the selection keep Resolve's default of enabled. On
+// error the receiver is left untouched (the caller keeps what it had).
+func (s Selection) Rebuild(root string, spec Spec) (Selection, error) {
+	items, err := Resolve(root, spec)
+	if err != nil {
+		return s, err
+	}
+	return Selection{Spec: spec, Items: carryFlags(s.Items, items)}, nil
+}
+
+// carryFlags re-applies the disabled paths of prev to next. Only the *off* set is carried, which is
+// what makes a path new to the selection default to on for free — Resolve already enabled it.
+func carryFlags(prev, next []Item) []Item {
+	off := make(map[string]bool)
+	for _, it := range prev {
+		if !it.On {
+			off[it.Path] = true
+		}
+	}
+	if len(off) == 0 {
+		return next
+	}
+	for i := range next {
+		if off[next[i].Path] {
+			next[i].On = false
+		}
+	}
+	return next
+}
+
 // readImmediate appends the root's immediate children matching spec.
 func readImmediate(root string, spec Spec, items *[]Item) error {
 	entries, err := os.ReadDir(root)

@@ -98,6 +98,80 @@ func TestResolveMissingDir(t *testing.T) {
 	}
 }
 
+// TestRebuildPreservesOffFlags is the contract the Build checklist leans on: it re-resolves on
+// every toggle, so a refinement made in the Refine checklist has to survive a flag being flipped
+// on and back off.
+func TestRebuildPreservesOffFlags(t *testing.T) {
+	root := setupTree(t)
+	items, err := Resolve(root, Spec{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sel := Selection{Spec: Spec{Files: true}, Items: items}
+	off := filepath.Join(root, "b.txt")
+	for i := range sel.Items {
+		if sel.Items[i].Path == off {
+			sel.Items[i].On = false
+		}
+	}
+
+	// Recursive on: b.txt survives and must still be off, while the newly reached nested.txt
+	// arrives enabled.
+	sel, err = sel.Rebuild(root, Spec{Files: true, Recursive: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sel.Items) != 3 {
+		t.Fatalf("got %d items, want 3: %v", len(sel.Items), paths(sel.Items))
+	}
+	for _, it := range sel.Items {
+		want := it.Path != off
+		if it.On != want {
+			t.Errorf("%s: On = %v, want %v", it.Path, it.On, want)
+		}
+	}
+	if sel.Spec != (Spec{Files: true, Recursive: true}) {
+		t.Errorf("Rebuild should store the new spec, got %+v", sel.Spec)
+	}
+
+	// ...and back off: b.txt is still there, still disabled.
+	sel, err = sel.Rebuild(root, Spec{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(sel.Paths()); got != 1 {
+		t.Errorf("after flipping Recursive on and off, Paths len = %d, want 1: %v", got, sel.Paths())
+	}
+}
+
+func TestRebuildFromEmpty(t *testing.T) {
+	root := setupTree(t)
+	sel, err := Selection{}.Rebuild(root, Spec{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(sel.Paths()); got != 2 {
+		t.Errorf("a fresh rebuild should enable everything it resolves, got %d of %d", got, len(sel.Items))
+	}
+}
+
+// TestRebuildKeepsSelectionOnError pins that a failed resolve leaves the caller with what it had —
+// the Build checklist keeps showing a loaded selection rather than blanking it.
+func TestRebuildKeepsSelectionOnError(t *testing.T) {
+	root := setupTree(t)
+	sel, err := Selection{}.Rebuild(root, Spec{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := sel.Rebuild(filepath.Join(root, "nope"), Spec{Dirs: true})
+	if err == nil {
+		t.Fatal("expected an error rebuilding under a missing directory")
+	}
+	if len(got.Items) != len(sel.Items) || got.Spec != sel.Spec {
+		t.Errorf("a failed rebuild should return the receiver unchanged, got %+v", got)
+	}
+}
+
 func TestPathsAndSummary(t *testing.T) {
 	root := setupTree(t)
 	items, _ := Resolve(root, Spec{Files: true, Dirs: true})

@@ -8,10 +8,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// SelectionScreen is golaunch's first tab: two rows — Build selection (a form of dir/file/recursive/
-// current toggles that resolves the candidate paths) and Refine selection (a checklist that toggles
-// each captured path on/off). The enabled subset is what the Scripts tab launches against; the
-// header reflects the running selection. R (shift+R) opens the refine checklist from here too.
+// SelectionScreen is golaunch's first tab: two rows — Build selection (a checklist of dir/file/
+// recursive/current flags that re-resolves the candidate paths on every toggle) and Refine selection
+// (a checklist that toggles each captured path on/off). The enabled subset is what the Scripts tab
+// launches against; the header reflects the running selection. R (shift+R) opens the refine
+// checklist from here too.
 type SelectionScreen struct {
 	list list.Model
 	root string // the directory this tab concerns; enables the global Terminal/OpenDir keys
@@ -30,14 +31,14 @@ func NewSelectionScreen(sh *core.Shared) *SelectionScreen {
 	}
 }
 
-// selectionItems builds the two self-dispatching rows: Build opens the toggle form, Refine opens
+// selectionItems builds the two self-dispatching rows: Build opens the flag checklist, Refine opens
 // the checklist over whatever the last build captured.
 func selectionItems() []list.Item {
 	return []list.Item{
 		components.Item{
 			Name: "Build selection",
-			Desc: "choose dirs / files / recursive / current, then resolve the paths",
-			Pick: func(sh *core.Shared) core.Action { return core.Push(buildForm(sh)) },
+			Desc: "toggle dirs / files / recursive / current — the paths resolve live",
+			Pick: func(sh *core.Shared) core.Action { return pushBuild(sh) },
 		},
 		components.Item{
 			Name: "Refine selection",
