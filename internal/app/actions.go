@@ -11,5 +11,5 @@ import (
 // sub-flows return to.
 func actionsMenu(sh *core.Shared) *components.PickerScreen {
 	return components.NewActionsMenu(selfUpdateHooks(Of(sh).Version),
-		"rescan the script directories", refreshAction)
+		"rescan the script directories", refreshAction, nil) // no docs compiled in
 }
