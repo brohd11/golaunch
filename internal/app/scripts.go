@@ -113,15 +113,5 @@ func (s *ScriptsScreen) CrumbLabel(bool) string           { return TitleScripts 
 func (s *ScriptsScreen) LocateDir() (string, bool)        { return s.root, s.root != "" }
 
 func (s *ScriptsScreen) Update(sh *core.Shared, msg tea.Msg) (core.Screen, core.Action) {
-	// The tab's own keys, gated behind the filter guard so they don't hijack filter typing:
-	// R (shift+R) opens the refine checklist, "a" the Actions menu (theme, update, refresh).
-	if k, ok := msg.(tea.KeyMsg); ok && !s.Filtering() {
-		switch {
-		case core.MatchKey(k.String(), refineKey):
-			return s, pushRefine(sh)
-		case core.MatchKey(k.String(), keys.Actions):
-			return s, core.Push(actionsMenu(sh))
-		}
-	}
-	return s, components.RootUpdate(sh, &s.list, msg)
+	return s, tabRootUpdate(sh, &s.list, msg)
 }

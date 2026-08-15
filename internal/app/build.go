@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/brohd11/bubblestack/components"
 	"github.com/brohd11/bubblestack/core"
 	"github.com/brohd11/golaunch/internal/selection"
 
@@ -21,26 +20,6 @@ var buildFlags = []struct {
 	{"Recursive", "descend into subdirectories", func(s *selection.Spec) *bool { return &s.Recursive }},
 	{"Include current", "add the root directory itself", func(s *selection.Spec) *bool { return &s.Current }},
 }
-
-// buildRow is one build-flag row: a [x]/[ ] marker plus the flag's label, matching refineRow's
-// look so the two checklists read as the same screen at different altitudes. idx maps the row back
-// to its buildFlags entry; the Spec on the shared Selection stays the source of truth for on.
-type buildRow struct {
-	idx         int
-	label, desc string
-	on          bool
-}
-
-func (r buildRow) Title() string {
-	mark := "[ ] "
-	if r.on {
-		mark = "[x] "
-	}
-	return mark + r.label
-}
-
-func (r buildRow) Description() string { return r.desc }
-func (r buildRow) FilterValue() string { return r.label }
 
 // BuildScreen is the checklist over the four build flags: enter toggles the highlighted flag and
 // re-resolves the candidate paths immediately, so the header's selection summary moves with every
@@ -79,11 +58,12 @@ func newBuildScreen(spec selection.Spec) *BuildScreen {
 	return &BuildScreen{list: core.NewSelectList(buildItems(spec), "Build selection")}
 }
 
-// buildItems builds the checklist rows from a spec (index-aligned with buildFlags).
+// buildItems builds the checklist rows from a spec (index-aligned with buildFlags). There is
+// nothing but the flag's label to filter on here, so that is what the row matches.
 func buildItems(spec selection.Spec) []list.Item {
 	rows := make([]list.Item, len(buildFlags))
 	for i, f := range buildFlags {
-		rows[i] = buildRow{idx: i, label: f.label, desc: f.desc, on: *f.field(&spec)}
+		rows[i] = checkRow{idx: i, label: f.label, desc: f.desc, filter: f.label, on: *f.field(&spec)}
 	}
 	return rows
 }
@@ -97,43 +77,14 @@ func (s *BuildScreen) CrumbLabel(bool) string       { return "Build" }
 func (s *BuildScreen) SetSize(_ *core.Shared, w, h int) { s.list.SetSize(w, h) }
 
 func (s *BuildScreen) Update(sh *core.Shared, msg tea.Msg) (core.Screen, core.Action) {
-	if m, ok := msg.(tea.MouseMsg); ok {
-		if components.WheelNav(&s.list, m) {
-			return s, core.Action{}
-		}
-	}
-	// While actively typing a filter, every key belongs to the filter input.
-	if s.Filtering() {
-		var cmd tea.Cmd
-		s.list, cmd = s.list.Update(msg)
-		return s, core.Async(cmd)
-	}
-	if km, ok := msg.(tea.KeyMsg); ok {
-		k := km.String()
-		switch {
-		case core.MatchKey(k, core.Keys.Select):
-			// enter flips the highlighted flag and rebuilds the selection on the spot; the screen
-			// stays open so the paths can be narrowed a flag at a time.
-			return s, s.toggleSelected(sh)
-		case core.MatchKey(k, core.Keys.Back):
-			// esc exits, keeping whatever the last toggle resolved; confirm it on the status line.
-			return s, core.Seq(core.SetStatus("selection: "+Of(sh).Sel.Summary()), core.Pop())
-		default:
-			if components.WrapNav(&s.list, k) {
-				return s, core.Action{}
-			}
-		}
-	}
-	var cmd tea.Cmd
-	s.list, cmd = s.list.Update(msg)
-	return s, core.Async(cmd)
+	return s, checklistUpdate(&s.list, sh, msg, s.toggleSelected)
 }
 
 // toggleSelected flips the highlighted row's flag, re-resolves the paths under it, and rebuilds the
 // rows so the [x]/[ ] marker updates, keeping the cursor where it was. A failed resolve leaves the
 // spec untouched, so the rows still describe the selection that's actually loaded.
 func (s *BuildScreen) toggleSelected(sh *core.Shared) core.Action {
-	row, ok := s.list.SelectedItem().(buildRow)
+	row, ok := s.list.SelectedItem().(checkRow)
 	if !ok {
 		return core.Action{}
 	}
@@ -148,9 +99,7 @@ func (s *BuildScreen) toggleSelected(sh *core.Shared) core.Action {
 	}
 	c.Sel = sel
 
-	idx := s.list.Index()
-	s.list.SetItems(buildItems(spec))
-	s.list.Select(idx)
+	setRowsKeepCursor(&s.list, buildItems(spec))
 
 	// Recursive on its own gathers nothing — Any() ignores it. What was a submit-blocking error on
 	// the old form is just a hint now: there's no submit left to block, and the header already

@@ -51,13 +51,47 @@ func TestEnsureFirstRun(t *testing.T) {
 	}
 }
 
-func TestExpandHome(t *testing.T) {
+// TestLoadExpandsScriptDirs pins what Load owes its callers about hand-edited script_dirs:
+// a tilde entry resolves against HOME, an absolute one is passed through, and an entry the
+// shared expander refuses ("~other-user") survives as typed rather than being dropped from
+// the scan. The tilde mechanics themselves belong to goutil/strutil and are tested there.
+func TestLoadExpandsScriptDirs(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	if got := expandHome("~/scripts"); got != filepath.Join(home, "scripts") {
-		t.Errorf("expandHome(~/scripts) = %q", got)
+
+	dir := filepath.Join(home, ".golaunch")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if got := expandHome("/abs/path"); got != "/abs/path" {
-		t.Errorf("expandHome left absolute path unchanged failed: %q", got)
+	body := "script_dirs:\n  - ~/scripts\n  - /abs/path\n  - ~other/scripts\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.yml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.Join(home, "scripts"), "/abs/path", "~other/scripts"}
+	if len(cfg.ScriptDirs) != len(want) {
+		t.Fatalf("ScriptDirs = %v, want %v", cfg.ScriptDirs, want)
+	}
+	for i, w := range want {
+		if cfg.ScriptDirs[i] != w {
+			t.Errorf("ScriptDirs[%d] = %q, want %q", i, cfg.ScriptDirs[i], w)
+		}
+	}
+}
+
+// TestLoadMissingFile covers first-run-before-Ensure: no config.yml is not an error, and the
+// zero Config (no script dirs) is what the Scripts tab scans with.
+func TestLoadMissingFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load on a missing file: %v", err)
+	}
+	if len(cfg.ScriptDirs) != 0 {
+		t.Errorf("ScriptDirs = %v, want empty", cfg.ScriptDirs)
 	}
 }

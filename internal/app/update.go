@@ -1,39 +1,23 @@
 package app
 
 import (
-	"context"
-
-	"github.com/brohd11/goutil/selfupdate"
-
 	"github.com/brohd11/bubblestack/components"
 	"github.com/brohd11/bubblestack/core"
+	bsupdate "github.com/brohd11/bubblestack/selfupdate"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// selfUpdateRepo is golaunch's own GitHub repo slug, passed to the shared self-update library.
+// selfUpdateRepo is golaunch's own GitHub repo slug, passed to the shared self-update bridge.
 const selfUpdateRepo = "brohd11/golaunch"
 
 // selfUpdateHooks builds the shared self-update flow's (bubblestack/components) hook
-// set for golaunch: the app name, the running version, and goutil's self-update
-// library aimed at golaunch's own repo and the running binary's directory. The
-// conversion between goutil's selfupdate.Info and the flow's app-agnostic
-// SelfUpdateInfo is a direct one — the structs are field-identical by design.
+// set for golaunch. The goutil↔components wiring — the Check/Apply closures and the
+// conversion between goutil's selfupdate.Info and the flow's app-agnostic SelfUpdateInfo
+// (field-identical by design) — lives in the bubblestack/selfupdate bridge, which every
+// app in the monorepo used to hand-roll a copy of.
 func selfUpdateHooks(version string) components.SelfUpdateHooks {
-	return components.SelfUpdateHooks{
-		AppName: "golaunch",
-		Check: func(ctx context.Context) (components.SelfUpdateInfo, error) {
-			info, err := selfupdate.Check(ctx, selfUpdateRepo, version)
-			return components.SelfUpdateInfo(info), err
-		},
-		Apply: func(ctx context.Context, info components.SelfUpdateInfo, report func(string, ...any)) error {
-			binDir, err := selfupdate.BinDir()
-			if err != nil {
-				return err
-			}
-			return selfupdate.Apply(ctx, selfUpdateRepo, selfupdate.Info(info), binDir, report)
-		},
-	}
+	return bsupdate.Hooks("golaunch", selfUpdateRepo, version)
 }
 
 // SelfUpdateCheckCmd is the app-level startup command (wired onto bubblestack Config.Init):

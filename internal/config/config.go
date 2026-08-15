@@ -12,11 +12,11 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/brohd11/golaunch/internal/examples"
 
-	"gopkg.in/yaml.v3"
+	"github.com/brohd11/goutil/configdir"
+	"github.com/brohd11/goutil/strutil"
 )
 
 // Config is the parsed ~/.golaunch/config.yml. Every field is optional; a missing file yields the
@@ -25,13 +25,10 @@ type Config struct {
 	ScriptDirs []string `yaml:"script_dirs,omitempty"` // directories the Scripts tab scans
 }
 
-// Dir is ~/.golaunch, the home for config.yml and the default scripts directory.
+// Dir is ~/.golaunch, the home for config.yml and the default scripts directory. The
+// ~/.<app> convention itself is goutil/configdir's; this pins golaunch's own name.
 func Dir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".golaunch"), nil
+	return configdir.Dir("golaunch")
 }
 
 // Path is ~/.golaunch/config.yml.
@@ -60,19 +57,18 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &Config{}, nil
-		}
-		return nil, err
-	}
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	if err := configdir.Load(path, &cfg); err != nil {
 		return nil, err
 	}
 	for i, d := range cfg.ScriptDirs {
-		cfg.ScriptDirs[i] = expandHome(d)
+		// An unexpandable entry keeps the string as typed rather than dropping the dir:
+		// ExpandHome errors on a home-lookup failure and on the "~other-user" form, and
+		// passing both through unchanged is what a scan already did before this helper
+		// was shared. A path that then doesn't exist is the scan's problem, not Load's.
+		if exp, err := strutil.ExpandHome(d); err == nil {
+			cfg.ScriptDirs[i] = exp
+		}
 	}
 	return &cfg, nil
 }
@@ -101,28 +97,8 @@ func Ensure() (created bool, err error) {
 		return false, err
 	}
 	cfg := Config{ScriptDirs: []string{scriptsDir}}
-	out, err := yaml.Marshal(&cfg)
-	if err != nil {
-		return false, err
-	}
-	if err := os.WriteFile(path, out, 0o644); err != nil {
+	if err := configdir.SaveAtomic(dir, "config.yml", &cfg); err != nil {
 		return false, err
 	}
 	return true, nil
-}
-
-// expandHome resolves a leading ~ (or ~/) to the user's home directory, leaving other paths
-// unchanged. A home-lookup failure degrades to the original string rather than failing a scan.
-func expandHome(p string) string {
-	if p != "~" && !strings.HasPrefix(p, "~/") {
-		return p
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return p
-	}
-	if p == "~" {
-		return home
-	}
-	return filepath.Join(home, p[2:])
 }
