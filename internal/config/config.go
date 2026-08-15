@@ -12,6 +12,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/brohd11/golaunch/internal/examples"
 
@@ -113,7 +114,7 @@ func Ensure() (created bool, err error) {
 // expandHome resolves a leading ~ (or ~/) to the user's home directory, leaving other paths
 // unchanged. A home-lookup failure degrades to the original string rather than failing a scan.
 func expandHome(p string) string {
-	if p != "~" && !hasPrefix(p, "~/") {
+	if p != "~" && !strings.HasPrefix(p, "~/") {
 		return p
 	}
 	home, err := os.UserHomeDir()
@@ -124,8 +125,4 @@ func expandHome(p string) string {
 		return home
 	}
 	return filepath.Join(home, p[2:])
-}
-
-func hasPrefix(s, prefix string) bool {
-	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }
