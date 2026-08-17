@@ -3,12 +3,11 @@ module github.com/brohd11/golaunch
 go 1.26.4
 
 require (
-	github.com/brohd11/bubblestack v0.1.6
-	github.com/brohd11/goutil v0.1.1
+	github.com/brohd11/bubblestack v0.1.7
+	github.com/brohd11/goutil v0.1.2
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/spf13/cobra v1.10.2
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -38,4 +37,5 @@ require (
 	github.com/yuin/goldmark v1.8.5 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
