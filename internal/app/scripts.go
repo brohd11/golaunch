@@ -106,7 +106,7 @@ func scriptDesc(s scripts.Script) string {
 
 func (s *ScriptsScreen) Init(*core.Shared) tea.Cmd        { return nil }
 func (s *ScriptsScreen) Filtering() bool                  { return s.list.FilterState() == list.Filtering }
-func (s *ScriptsScreen) View(*core.Shared) string         { return s.list.View() }
+func (s *ScriptsScreen) View(*core.Shared) string         { return core.RenderList(s.list) }
 func (s *ScriptsScreen) HelpView(*core.Shared) string     { return core.ShortHelp(s.list, core.HelpTabbed) }
 func (s *ScriptsScreen) SetSize(_ *core.Shared, w, h int) { s.list.SetSize(w, h) }
 func (s *ScriptsScreen) CrumbLabel(bool) string           { return TitleScripts }

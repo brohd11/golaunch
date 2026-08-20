@@ -50,7 +50,7 @@ func selectionItems() []list.Item {
 
 func (s *SelectionScreen) Init(*core.Shared) tea.Cmd { return nil }
 func (s *SelectionScreen) Filtering() bool           { return s.list.FilterState() == list.Filtering }
-func (s *SelectionScreen) View(*core.Shared) string  { return s.list.View() }
+func (s *SelectionScreen) View(*core.Shared) string  { return core.RenderList(s.list) }
 func (s *SelectionScreen) HelpView(*core.Shared) string {
 	return core.ShortHelp(s.list, core.HelpTabbed)
 }

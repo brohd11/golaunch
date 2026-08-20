@@ -59,7 +59,7 @@ func refineItems(sh *core.Shared) []list.Item {
 
 func (s *RefineScreen) Init(*core.Shared) tea.Cmd    { return nil }
 func (s *RefineScreen) Filtering() bool              { return s.list.FilterState() == list.Filtering }
-func (s *RefineScreen) View(*core.Shared) string     { return s.list.View() }
+func (s *RefineScreen) View(*core.Shared) string     { return core.RenderList(s.list) }
 func (s *RefineScreen) HelpView(*core.Shared) string { return core.ShortHelp(s.list, core.HelpMinimal) }
 func (s *RefineScreen) CrumbLabel(bool) string       { return "Refine" }
 

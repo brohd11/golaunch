@@ -70,7 +70,7 @@ func buildItems(spec selection.Spec) []list.Item {
 
 func (s *BuildScreen) Init(*core.Shared) tea.Cmd    { return nil }
 func (s *BuildScreen) Filtering() bool              { return s.list.FilterState() == list.Filtering }
-func (s *BuildScreen) View(*core.Shared) string     { return s.list.View() }
+func (s *BuildScreen) View(*core.Shared) string     { return core.RenderList(s.list) }
 func (s *BuildScreen) HelpView(*core.Shared) string { return core.ShortHelp(s.list, core.HelpMinimal) }
 func (s *BuildScreen) CrumbLabel(bool) string       { return "Build" }
 
