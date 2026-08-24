@@ -12,9 +12,7 @@ import (
 // moment a mode is picked in the Selection tab.
 func Header(sh *core.Shared) string {
 	c := Of(sh)
-	inner := core.HeaderInnerWidth(sh.Width())
-	// Value budget: inner width minus the box's horizontal padding (2) and the label (8).
-	valWidth := inner - 10
+	valWidth := core.HeaderValueWidth(sh.Width(), "Root:   ")
 	body := core.Label("Root:   ") + core.Value(core.TruncLeft(c.Root, valWidth)) + "\n" +
 		core.Label("Select: ") + core.Value(c.Sel.Summary()) + "\n" +
 		core.Label("Scripts:") + core.Value(fmt.Sprintf(" %d found", len(c.Scripts)))
