@@ -4,9 +4,9 @@ import (
 	"github.com/brohd11/bubblestack/components"
 	"github.com/brohd11/bubblestack/core"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 )
 
 // keys are golaunch's screen-level bindings that aren't part of bubblestack's framework
@@ -25,7 +25,7 @@ var keys = struct {
 // The keys are gated behind the filter guard so they don't hijack filter typing — an "a"
 // typed into a filter is a letter, not the Actions menu.
 func tabRootUpdate(sh *core.Shared, l *list.Model, msg tea.Msg) core.Action {
-	if k, ok := msg.(tea.KeyMsg); ok && l.FilterState() != list.Filtering {
+	if k, ok := msg.(tea.KeyPressMsg); ok && l.FilterState() != list.Filtering {
 		switch {
 		case core.MatchKey(k.String(), refineKey):
 			return pushRefine(sh)

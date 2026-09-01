@@ -4,8 +4,8 @@ import (
 	"github.com/brohd11/bubblestack/components"
 	"github.com/brohd11/bubblestack/core"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 )
 
 // The Build and Refine screens are the same screen at two altitudes: a filterable list of
@@ -42,8 +42,10 @@ func (r checkRow) FilterValue() string { return r.filter }
 // that differs between them — what enter does to the highlighted row — so it is the only
 // thing passed in. The caller returns itself as the screen; this returns only the action.
 func checklistUpdate(l *list.Model, sh *core.Shared, msg tea.Msg, onSelect func(*core.Shared) core.Action) core.Action {
-	if m, ok := msg.(tea.MouseMsg); ok {
-		if components.WheelNav(l, m) {
+	// v2 gives the wheel its own message type, so the kind is in the match rather
+	// than in a field check inside WheelNav.
+	if m, ok := msg.(tea.MouseWheelMsg); ok {
+		if components.WheelNav(l, m.Mouse()) {
 			return core.Action{}
 		}
 	}
@@ -53,7 +55,7 @@ func checklistUpdate(l *list.Model, sh *core.Shared, msg tea.Msg, onSelect func(
 		*l, cmd = l.Update(msg)
 		return core.Async(cmd)
 	}
-	if km, ok := msg.(tea.KeyMsg); ok {
+	if km, ok := msg.(tea.KeyPressMsg); ok {
 		k := km.String()
 		switch {
 		case core.MatchKey(k, core.Keys.Select):

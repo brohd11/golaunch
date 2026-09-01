@@ -4,8 +4,8 @@ import (
 	"github.com/brohd11/bubblestack/core"
 	"github.com/brohd11/golaunch/internal/selection"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 )
 
 // buildFlags is the Spec's four booleans as checklist rows. field hands back a pointer into a Spec

@@ -7,9 +7,9 @@ import (
 	"github.com/brohd11/bubblestack/core"
 	"github.com/brohd11/golaunch/internal/scripts"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 )
 
 // groupGlyph marks a row that opens a submenu rather than launching a script.
