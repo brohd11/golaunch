@@ -10,21 +10,27 @@ import (
 )
 
 // Ctx is golaunch's app context, stored on core.Shared.App and recovered with Of. It holds the
-// root directory, the current file selection (built in the Selection tab), and the scripts found
-// by scanning the configured directories. There is no manifest — like repoview, the state is
-// whatever a fresh scan turns up.
+// root directory, the current file selection (built in the Selection tab or supplied on argv), and
+// the scripts found by scanning the configured directories. There is no manifest — like repoview,
+// the state is whatever a fresh scan turns up.
 type Ctx struct {
-	Root    string
-	Version string
-	Sel     selection.Selection
-	Scripts []scripts.Script
+	Root        string
+	Version     string
+	Sel         selection.Selection
+	Preselected bool
+	Scripts     []scripts.Script
 }
 
 // New builds the context and performs the initial script scan, so the Scripts tab has rows on
 // first render. Startup scan problems go unreported here (no status line exists yet); the same
 // problems surface on the first manual refresh, which reports what Rescan returns.
-func New(root, version string) *Ctx {
-	c := &Ctx{Root: root, Version: version}
+func New(opts Options) *Ctx {
+	c := &Ctx{
+		Root:        opts.Root,
+		Version:     opts.Version,
+		Sel:         opts.Selection,
+		Preselected: opts.Preselected,
+	}
 	c.Rescan()
 	return c
 }

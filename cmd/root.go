@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/brohd11/golaunch/internal/app"
+	"github.com/brohd11/golaunch/internal/selection"
 
 	"github.com/spf13/cobra"
 )
@@ -13,17 +17,20 @@ import (
 // it via -X ldflags later, matching the sibling tools.
 var version = "dev"
 
-var rootCmd = &cobra.Command{
-	Use:   "golaunch [dir]",
-	Short: "Launch scripts against a file selection (TUI)",
-	Long: `golaunch opens a TUI rooted at a directory. The Selection tab builds a set of paths
-(the current dir, its child dirs, or its child files); the Scripts tab lists scripts scanned
-from configured directories and runs the selected one against that selection.
+var rootPath string
 
-  golaunch          # current directory
-  golaunch /path    # an explicit root`,
+var rootCmd = &cobra.Command{
+	Use:   "golaunch [flags] [paths...]",
+	Short: "Launch scripts against a file selection (TUI)",
+	Long: `golaunch launches configured scripts against a file selection. With no paths it opens
+the Selection tab to build a selection under the root. With paths it uses those paths as the
+selection and opens the Scripts view directly; press R there to refine the supplied selection.
+
+  golaunch                         # build a selection under the current directory
+  golaunch file.txt photos/        # launch against those two paths
+  golaunch --root /work file.txt   # use /work as the scripts' working directory`,
 	Version:       version,
-	Args:          cobra.MaximumNArgs(1),
+	Args:          cobra.ArbitraryArgs,
 	SilenceUsage:  true,
 	SilenceErrors: false,
 	RunE:          runRoot,
@@ -31,6 +38,7 @@ from configured directories and runs the selected one against that selection.
 
 func init() {
 	rootCmd.SetVersionTemplate("golaunch {{.Version}}\n")
+	rootCmd.Flags().StringVar(&rootPath, "root", ".", "script working directory and selection-building root")
 }
 
 func Execute() {
@@ -39,16 +47,38 @@ func Execute() {
 	}
 }
 
-// runRoot resolves the optional root directory (default: cwd) to an absolute path and launches
-// the TUI.
+// runRoot resolves the working root and any argv selection to absolute paths, then launches the
+// normal two-tab TUI or the preselected Scripts-only mode.
 func runRoot(cmd *cobra.Command, args []string) error {
-	root := "."
-	if len(args) > 0 {
-		root = args[0]
-	}
-	abs, err := filepath.Abs(root)
+	abs, err := filepath.Abs(rootPath)
 	if err != nil {
 		return err
 	}
-	return app.Run(abs, version)
+
+	sel, preselected, err := resolveSelection(args, cmd.ErrOrStderr())
+	if err != nil {
+		return err
+	}
+
+	return app.Run(app.Options{
+		Root:        abs,
+		Version:     version,
+		Selection:   sel,
+		Preselected: preselected,
+	})
+}
+
+// resolveSelection prepares argv paths without making one stale or unmounted Finder item prevent
+// the valid remainder from opening. Supplying only invalid paths is still an error: preselected
+// mode has no Build screen and would otherwise have no usable selection.
+func resolveSelection(args []string, stderr io.Writer) (selection.Selection, bool, error) {
+	sel, problems := selection.FromPaths(args)
+	for _, problem := range problems {
+		fmt.Fprintln(stderr, "skipping:", problem)
+	}
+	preselected := len(args) > 0
+	if preselected && sel.Empty() {
+		return sel, true, errors.New("no valid paths selected")
+	}
+	return sel, preselected, nil
 }

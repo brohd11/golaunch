@@ -40,6 +40,28 @@ type Selection struct {
 	Items []Item
 }
 
+// FromPaths builds a selection from explicit command-line paths. Valid paths are made absolute,
+// classified as files or directories, and enabled in argument order. Invalid paths are omitted and
+// returned as individual problems so a file-manager launch can continue with the rest.
+func FromPaths(paths []string) (Selection, []error) {
+	items := make([]Item, 0, len(paths))
+	var problems []error
+	for _, path := range paths {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			problems = append(problems, fmt.Errorf("%s: %w", path, err))
+			continue
+		}
+		info, err := os.Stat(abs)
+		if err != nil {
+			problems = append(problems, fmt.Errorf("%s: %w", path, err))
+			continue
+		}
+		items = append(items, Item{Path: abs, IsDir: info.IsDir(), On: true})
+	}
+	return Selection{Items: items}, problems
+}
+
 // Resolve gathers the candidate paths under root for spec, each enabled by default. Current adds
 // the root itself; otherwise the root's immediate children are read, or every descendant when
 // Recursive. Dirs keeps directories, Files keeps files. Results are sorted and absolute. A read

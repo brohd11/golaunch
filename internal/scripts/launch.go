@@ -17,7 +17,7 @@ import (
 // with a status hint rather than running a script against nothing.
 func Launch(sh *core.Shared, s Script, root string, paths []string) core.Action {
 	if len(paths) == 0 {
-		return core.SetStatus("no selection — pick paths in the Selection tab first")
+		return core.SetStatus("no paths selected")
 	}
 	argv := make([]string, 0, len(s.Interp)+1+len(paths))
 	argv = append(argv, s.Interp...)

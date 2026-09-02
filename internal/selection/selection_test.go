@@ -32,6 +32,36 @@ func paths(items []Item) []string {
 	return out
 }
 
+func TestFromPaths(t *testing.T) {
+	root := setupTree(t)
+	t.Chdir(root)
+	file := filepath.Join(root, "a.txt")
+	dir := filepath.Join(root, "sub1")
+	missing := "missing"
+
+	sel, problems := FromPaths([]string{"a.txt", "sub1", missing})
+	if len(problems) != 1 {
+		t.Fatalf("problems = %d, want 1: %v", len(problems), problems)
+	}
+	if got := paths(sel.Items); len(got) != 2 || got[0] != file || got[1] != dir {
+		t.Fatalf("paths = %v, want [%s %s] in argument order", got, file, dir)
+	}
+	if sel.Items[0].IsDir || !sel.Items[1].IsDir {
+		t.Errorf("path kinds wrong: %+v", sel.Items)
+	}
+	for _, item := range sel.Items {
+		if !item.On {
+			t.Errorf("explicit path should start enabled: %+v", item)
+		}
+		if !filepath.IsAbs(item.Path) {
+			t.Errorf("explicit path should be absolute: %q", item.Path)
+		}
+	}
+	if sel.Spec != (Spec{}) {
+		t.Errorf("explicit selection should not carry a build spec: %+v", sel.Spec)
+	}
+}
+
 func TestResolveImmediateFiles(t *testing.T) {
 	root := setupTree(t)
 	items, err := Resolve(root, Spec{Files: true})
