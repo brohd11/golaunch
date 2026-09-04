@@ -12,6 +12,7 @@ import (
 func TestEnsureFirstRun(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", os.Getenv("HOME"))
 
 	created, err := Ensure()
 	if err != nil {
@@ -58,6 +59,7 @@ func TestEnsureFirstRun(t *testing.T) {
 func TestLoadExpandsScriptDirs(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", os.Getenv("HOME"))
 
 	dir := filepath.Join(home, ".golaunch")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -87,6 +89,7 @@ func TestLoadExpandsScriptDirs(t *testing.T) {
 // zero Config (no script dirs) is what the Scripts tab scans with.
 func TestLoadMissingFile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", os.Getenv("HOME"))
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load on a missing file: %v", err)
