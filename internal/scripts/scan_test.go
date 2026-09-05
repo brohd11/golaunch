@@ -1,6 +1,7 @@
 package scripts
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -51,7 +52,10 @@ func TestScanReportsProblems(t *testing.T) {
 		t.Fatal(err)
 	}
 	bad := filepath.Join(dir, "bad.sh")
-	if err := os.WriteFile(bad, []byte("# name=Bad\n"), 0o000); err != nil { // unreadable: header parse fails
+	// A token larger than bufio.Scanner's limit makes header parsing fail on
+	// every platform. chmod(000) is not a reliable unreadable-file fixture on
+	// Windows, where the owner can still read it.
+	if err := os.WriteFile(bad, bytes.Repeat([]byte("x"), 128*1024), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	missing := filepath.Join(dir, "no-such-dir")
@@ -61,6 +65,6 @@ func TestScanReportsProblems(t *testing.T) {
 		t.Errorf("scripts = %+v, want just Good", got)
 	}
 	if len(problems) != 2 {
-		t.Fatalf("problems = %v, want 2 (unreadable script + missing dir)", problems)
+		t.Fatalf("problems = %v, want 2 (invalid header + missing dir)", problems)
 	}
 }
