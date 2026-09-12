@@ -9,13 +9,14 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// keys are golaunch's screen-level bindings that aren't part of bubblestack's framework
-// keymap (core.Keys). Only the Actions menu for now; refineKey lives beside the refine
-// screen it belongs to.
+// keys are golaunch's screen-level bindings. Actions is core.Keys.Actions rather than a
+// copy of it — the picker key is shared by every app on the framework, and aliasing it
+// here is what carries its ctrl+alt+a form in. refineKey lives beside the refine screen
+// it belongs to.
 var keys = struct {
 	Actions key.Binding // open the Actions menu (theme, update, refresh)
 }{
-	Actions: key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "actions")),
+	Actions: core.Keys.Actions,
 }
 
 // tabRootUpdate is the Update body both tab roots (Selection and Scripts) share: golaunch's
