@@ -47,7 +47,7 @@ func Run(opts Options) error {
 		Tabs:                 tabs(c.Preselected),
 		Init:                 SelfUpdateCheckCmd,
 		RefreshAction:        func(sh *core.Shared) core.Action { return refreshAction(sh) },
-		TerminalAction:       func(dir string) core.Action { return sysopen.TerminalInline(dir) },
+		TerminalAction:       func(dir string) core.Action { return sysopen.TerminalInlineFor("golaunch", dir) },
 		TerminalWindowAction: func(dir string) core.Action { return sysopen.Terminal(dir) },
 		OpenDirAction:        func(dir string) core.Action { return sysopen.Path(dir, false) },
 	})

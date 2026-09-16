@@ -26,6 +26,10 @@ golaunch --root /work report.txt
 When paths are supplied, golaunch opens directly on Scripts; press `R` to refine the selection.
 Use `--root` to set the scripts' working directory or the root used by the selection builder.
 
+Press `t` to open a shell in this terminal; `exit` returns to golaunch. In zsh, bash and fish,
+a reminder above each prompt names the return destination and shows any nested app terminals.
+Other shells show the reminder once on entry. `T` opens a separate terminal window.
+
 More install details (location, flags, etc): [shared install reference](https://github.com/brohd11/goutil/blob/main/docs/install.md).
 
 **macOS note:** a binary downloaded **in a browser** gets quarantined by Gatekeeper. Clear it
