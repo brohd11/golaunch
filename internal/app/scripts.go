@@ -9,34 +9,14 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
-	tea "charm.land/bubbletea/v2"
 )
 
 // groupGlyph marks a row that opens a submenu rather than launching a script.
 const groupGlyph = " ▸"
 
-// ScriptsScreen is golaunch's second tab: the scanned scripts, grouped into submenus by their
-// path= metadata. A group row opens a PickerScreen for that subtree; a script row launches the
-// script against the current selection (streaming into the log, or in an external terminal when the
-// script opts in). The tree is rebuilt whenever the tab root is (startup and Refresh).
-type ScriptsScreen struct {
-	list list.Model
-	root string
-}
-
-var (
-	_ core.Filterer   = (*ScriptsScreen)(nil)
-	_ core.Crumber    = (*ScriptsScreen)(nil)
-	_ core.DirLocator = (*ScriptsScreen)(nil)
-)
-
-func NewScriptsScreen(sh *core.Shared) *ScriptsScreen {
-	c := Of(sh)
-	tree := scripts.BuildTree(c.Scripts)
-	return &ScriptsScreen{
-		list: core.NewSelectList(nodeItems(c.Root, tree), TitleScripts, refineKey, keys.Actions),
-		root: c.Root,
-	}
+// NewScriptsScreen builds the scripts tab using shared root-list behavior.
+func NewScriptsScreen(sh *core.Shared) *components.RootListScreen {
+	return components.NewRootList(nodeItems(Of(sh).Root, scripts.BuildTree(Of(sh).Scripts)), rootListOpts(sh, TitleScripts))
 }
 
 // nodeItems builds the rows for one tree node: a submenu-opening row per child group, then a
@@ -102,16 +82,4 @@ func scriptDesc(s scripts.Script) string {
 		desc += "  [terminal]"
 	}
 	return desc
-}
-
-func (s *ScriptsScreen) Init(*core.Shared) tea.Cmd        { return nil }
-func (s *ScriptsScreen) Filtering() bool                  { return s.list.FilterState() == list.Filtering }
-func (s *ScriptsScreen) View(*core.Shared) string         { return core.RenderList(s.list) }
-func (s *ScriptsScreen) HelpView(*core.Shared) string     { return core.ShortHelp(s.list, core.HelpTabbed) }
-func (s *ScriptsScreen) SetSize(_ *core.Shared, w, h int) { s.list.SetSize(w, h) }
-func (s *ScriptsScreen) CrumbLabel(bool) string           { return TitleScripts }
-func (s *ScriptsScreen) LocateDir() (string, bool)        { return s.root, s.root != "" }
-
-func (s *ScriptsScreen) Update(sh *core.Shared, msg tea.Msg) (core.Screen, core.Action) {
-	return s, tabRootUpdate(sh, &s.list, msg)
 }

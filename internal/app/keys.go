@@ -6,7 +6,6 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
-	tea "charm.land/bubbletea/v2"
 )
 
 // keys are golaunch's screen-level bindings. Actions is core.Keys.Actions rather than a
@@ -19,20 +18,22 @@ var keys = struct {
 	Actions: core.Keys.Actions,
 }
 
-// tabRootUpdate is the Update body both tab roots (Selection and Scripts) share: golaunch's
-// two tab-level keys, then the framework's root list handling. Adding a third tab-level key
-// should reach both tabs, which is why this is one function and not a copy in each.
-//
-// The keys are gated behind the filter guard so they don't hijack filter typing — an "a"
-// typed into a filter is a letter, not the Actions menu.
-func tabRootUpdate(sh *core.Shared, l *list.Model, msg tea.Msg) core.Action {
-	if k, ok := msg.(tea.KeyPressMsg); ok && l.FilterState() != list.Filtering {
-		switch {
-		case core.MatchKey(k.String(), refineKey):
-			return pushRefine(sh)
-		case core.MatchKey(k.String(), keys.Actions):
-			return core.Push(actionsMenu(sh))
-		}
-	}
-	return components.RootUpdate(sh, l, msg)
+// rootListOpts shares the roots' directory capabilities and app commands.
+// RootListScreen supplies filtering, density, tab help, and row-key fallback.
+func rootListOpts(sh *core.Shared, title string) components.RootListOpts {
+	return components.RootListOpts{PickerOpts: components.PickerOpts{
+		Title: title,
+		Crumb: title,
+		Dir:   Of(sh).Root,
+		Help:  []key.Binding{refineKey, keys.Actions},
+		OnKey: func(sh *core.Shared, k string, _ list.Item) (core.Action, bool) {
+			switch {
+			case core.MatchKey(k, refineKey):
+				return pushRefine(sh), true
+			case core.MatchKey(k, keys.Actions):
+				return core.Push(actionsMenu(sh)), true
+			}
+			return core.Action{}, false
+		},
+	}}
 }

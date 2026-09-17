@@ -39,7 +39,7 @@ func TestActionsKeyPushesMenu(t *testing.T) {
 func TestActionsKeyYieldsToFilterTyping(t *testing.T) {
 	sh := actionsTestShared()
 	s := NewScriptsScreen(sh)
-	// "/" opens the list's filter input (reached via RootUpdate's fall-through).
+	// "/" opens the shared root list's filter input.
 	s.Update(sh, keyMsg("/"))
 	if !s.Filtering() {
 		t.Fatal("\"/\" should put the list into its Filtering state")

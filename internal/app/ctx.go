@@ -14,6 +14,9 @@ import (
 // the scripts found by scanning the configured directories. There is no manifest — like repoview,
 // the state is whatever a fresh scan turns up.
 type Ctx struct {
+	// ListCompact is the session density shared by standard roots and pickers.
+	ListCompact bool
+
 	Root        string
 	Version     string
 	Sel         selection.Selection
@@ -57,3 +60,6 @@ func (c *Ctx) Rescan() []error {
 func (c *Ctx) Receive(sh *core.Shared, payload any) core.Action {
 	return core.OnThemeChange(payload)
 }
+
+// ListDensity opts standard lists into the app-wide session preference.
+func (c *Ctx) ListDensity() *bool { return &c.ListCompact }
