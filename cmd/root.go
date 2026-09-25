@@ -13,8 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// version is the binary version; defaults to "dev" for a plain `go build`. A makefile can stamp
-// it via -X ldflags later, matching the sibling tools.
+// version is stamped by the makefile via -X ldflags; "dev" for a plain go build.
 var version = "dev"
 
 var rootPath string
@@ -68,9 +67,8 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	})
 }
 
-// resolveSelection prepares argv paths without making one stale or unmounted Finder item prevent
-// the valid remainder from opening. Supplying only invalid paths is still an error: preselected
-// mode has no Build screen and would otherwise have no usable selection.
+// resolveSelection prepares argv paths, skipping stale ones. Only-invalid input is an error:
+// preselected mode has no Build screen.
 func resolveSelection(args []string, stderr io.Writer) (selection.Selection, bool, error) {
 	sel, problems := selection.FromPaths(args)
 	for _, problem := range problems {

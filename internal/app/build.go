@@ -8,9 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// buildFlags is the Spec's four booleans as checklist rows. field hands back a pointer into a Spec
-// so a row can read and flip its own flag — the alternative, a kind enum plus a switch in the
-// screen, would put the same four cases in three places.
+// buildFlags are the Spec's booleans as checklist rows; field points into a Spec.
 var buildFlags = []struct {
 	label, desc string
 	field       func(*selection.Spec) *bool
@@ -21,11 +19,10 @@ var buildFlags = []struct {
 	{"Include current", "add the root directory itself", func(s *selection.Spec) *bool { return &s.Current }},
 }
 
-// BuildScreen is the checklist over the four build flags: enter toggles the highlighted flag and
-// re-resolves the candidate paths immediately, so the header's selection summary moves with every
-// keystroke and there is no separate build step. esc exits, keeping the result.
+// BuildScreen is the checklist over the build flags. Each toggle re-resolves the paths
+// immediately; esc exits, keeping the result.
 type BuildScreen struct {
-	list list.Model
+	checklist
 }
 
 var (
@@ -33,9 +30,8 @@ var (
 	_ core.Crumber  = (*BuildScreen)(nil)
 )
 
-// pushBuild opens the Build checklist, resolving on the way in so the header count already matches
-// the boxes on arrival. A resolve error is reported but doesn't block the push: an unreadable root
-// is exactly when the flags need to be reachable to pick something that works.
+// pushBuild resolves on the way in so the header count matches. A resolve error doesn't
+// block the push, so the flags stay reachable.
 func pushBuild(sh *core.Shared) core.Action {
 	c := Of(sh)
 	spec := c.Sel.Spec
@@ -55,7 +51,7 @@ func pushBuild(sh *core.Shared) core.Action {
 }
 
 func newBuildScreen(spec selection.Spec) *BuildScreen {
-	return &BuildScreen{list: core.NewSelectList(buildItems(spec), "Build selection")}
+	return &BuildScreen{checklist{list: core.NewSelectList(buildItems(spec), "Build selection"), crumb: "Build"}}
 }
 
 // buildItems builds the checklist rows from a spec (index-aligned with buildFlags). There is
@@ -68,21 +64,12 @@ func buildItems(spec selection.Spec) []list.Item {
 	return rows
 }
 
-func (s *BuildScreen) Init(*core.Shared) tea.Cmd    { return nil }
-func (s *BuildScreen) Filtering() bool              { return s.list.FilterState() == list.Filtering }
-func (s *BuildScreen) View(*core.Shared) string     { return core.RenderList(s.list) }
-func (s *BuildScreen) HelpView(*core.Shared) string { return core.ShortHelp(s.list, core.HelpMinimal) }
-func (s *BuildScreen) CrumbLabel(bool) string       { return "Build" }
-
-func (s *BuildScreen) SetSize(_ *core.Shared, w, h int) { s.list.SetSize(w, h) }
-
 func (s *BuildScreen) Update(sh *core.Shared, msg tea.Msg) (core.Screen, core.Action) {
 	return s, checklistUpdate(&s.list, sh, msg, s.toggleSelected)
 }
 
-// toggleSelected flips the highlighted row's flag, re-resolves the paths under it, and rebuilds the
-// rows so the [x]/[ ] marker updates, keeping the cursor where it was. A failed resolve leaves the
-// spec untouched, so the rows still describe the selection that's actually loaded.
+// toggleSelected flips the row's flag and re-resolves. A failed resolve leaves the spec
+// untouched.
 func (s *BuildScreen) toggleSelected(sh *core.Shared) core.Action {
 	row, ok := s.list.SelectedItem().(checkRow)
 	if !ok {
@@ -101,9 +88,7 @@ func (s *BuildScreen) toggleSelected(sh *core.Shared) core.Action {
 
 	setRowsKeepCursor(&s.list, buildItems(spec))
 
-	// Recursive on its own gathers nothing — Any() ignores it. What was a submit-blocking error on
-	// the old form is just a hint now: there's no submit left to block, and the header already
-	// reads "none".
+	// Recursive alone gathers nothing; the header already reads "none".
 	if !spec.Any() {
 		return core.SetStatus("nothing selected — enable dirs, files, or current")
 	}

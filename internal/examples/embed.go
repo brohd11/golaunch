@@ -1,6 +1,4 @@
-// Package examples ships golaunch's starter scripts inside the binary and writes them out on
-// first run, so a fresh install has something to launch. Each script carries a metadata header
-// (see the scripts package) demonstrating the recognized keys — name/desc/path/terminal.
+// Package examples ships golaunch's starter scripts and writes them out on first run.
 package examples
 
 import (
@@ -12,9 +10,7 @@ import (
 //go:embed scripts/*.py scripts/*.sh
 var files embed.FS
 
-// Materialize writes every bundled script into dir (executable, 0o755), skipping any that already
-// exist so a user's edits to a previously materialized script are never clobbered. dir is expected
-// to exist (config.Ensure creates it).
+// Materialize writes each bundled script into dir (0o755), never overwriting an existing one.
 func Materialize(dir string) error {
 	entries, err := files.ReadDir("scripts")
 	if err != nil {

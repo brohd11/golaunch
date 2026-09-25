@@ -10,11 +10,8 @@ import (
 	"github.com/brohd11/goutil/stream"
 )
 
-// Launch runs a script against the selected paths, rooted at root (the script's working directory).
-// The argv is the interpreter (if any), the script file, then the selected paths as positional
-// arguments. A script with terminal=true metadata is handed to an external terminal; otherwise it
-// streams into the TUI as a stay-task the user dismisses with esc. An empty selection is refused
-// with a status hint rather than running a script against nothing.
+// Launch runs a script against paths with root as the working directory: in an external
+// terminal when terminal=true, otherwise streamed into the TUI. An empty selection is refused.
 func Launch(sh *core.Shared, s Script, root string, paths []string) core.Action {
 	if len(paths) == 0 {
 		return core.SetStatus("no paths selected")

@@ -17,9 +17,8 @@ const (
 	TitleScripts   = "Scripts"
 )
 
-// Options describes one golaunch session. Preselected is deliberately separate from the current
-// selection: every supplied item may later be disabled in Refine without making the Build selection
-// UI appear.
+// Options describes one golaunch session. Preselected stays separate from the selection so
+// disabling every item in Refine doesn't bring back the Build UI.
 type Options struct {
 	Root        string
 	Version     string
@@ -27,13 +26,8 @@ type Options struct {
 	Preselected bool
 }
 
-// Run ensures golaunch's config exists (first run materializes ~/.golaunch and the example
-// scripts), then launches either the normal Selection/Scripts TUI or the Scripts-only preselected
-// mode. It wires the persistent header, a log/output pane (streamed script output lands there),
-// and a status line. The global Refresh key rescans the script directories; the global
-// Terminal/OpenDir keys act on the root directory (each tab root is a DirLocator). "a" opens the
-// Actions menu (theme, self-update, rescan). The Init startup command runs a background self-update
-// check that notes "update available" on the status line (silent otherwise).
+// Run ensures the config exists, then launches the Selection/Scripts TUI (or Scripts-only
+// when preselected).
 func Run(opts Options) error {
 	if _, err := config.Ensure(); err != nil {
 		return err
@@ -69,10 +63,8 @@ func tabs(preselected bool) []bubblestack.TabEntry {
 	}
 }
 
-// refreshAction rescans the script directories and rebuilds the tab roots so the Scripts tab picks
-// up added/removed scripts and edited metadata. Scan problems (an unreadable directory, a script
-// whose header fails to parse, a broken config) are logged individually and counted in the status,
-// so a script that vanishes from the menu leaves a trace.
+// refreshAction rescans the scripts and rebuilds the tab roots. Each scan problem is logged
+// and counted in the status.
 func refreshAction(sh *core.Shared) core.Action {
 	problems := Of(sh).Rescan()
 	for _, p := range problems {

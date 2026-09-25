@@ -8,18 +8,24 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// The Build and Refine screens are the same screen at two altitudes: a filterable list of
-// [x]/[ ] rows where enter toggles the highlighted one in place and esc leaves with the
-// result. This file holds the parts that were literally the same in both, so a change to how
-// a checklist behaves lands on both instead of only whichever one was being edited.
+// The Build and Refine screens are both a filterable list of [x]/[ ] rows where enter
+// toggles the highlighted row and esc leaves. This file holds what they share.
 
-// checkRow is one checklist row: a [x]/[ ] marker plus a label. idx maps the row back to
-// whatever the screen is a view of (a buildFlags entry, a Selection item) — that, not the
-// row, stays the source of truth for on, since every toggle rebuilds all the rows anyway.
-//
-// filter is separate from label because the two screens filter on different text: Build has
-// nothing but the label to match, while Refine matches the full path it shows as the
-// description, so typing a directory name finds rows whose basename doesn't contain it.
+// checklist is the screen plumbing Build and Refine embed; each supplies its own Update.
+type checklist struct {
+	list  list.Model
+	crumb string
+}
+
+func (s *checklist) Init(*core.Shared) tea.Cmd        { return nil }
+func (s *checklist) Filtering() bool                  { return s.list.FilterState() == list.Filtering }
+func (s *checklist) View(*core.Shared) string         { return core.RenderList(s.list) }
+func (s *checklist) HelpView(*core.Shared) string     { return core.ShortHelp(s.list, core.HelpMinimal) }
+func (s *checklist) CrumbLabel(bool) string           { return s.crumb }
+func (s *checklist) SetSize(_ *core.Shared, w, h int) { s.list.SetSize(w, h) }
+
+// checkRow is one checklist row. idx maps it back to the source of truth. filter is separate
+// from label because Refine matches the full path.
 type checkRow struct {
 	idx         int
 	label, desc string
@@ -38,9 +44,7 @@ func (r checkRow) Title() string {
 func (r checkRow) Description() string { return r.desc }
 func (r checkRow) FilterValue() string { return r.filter }
 
-// checklistUpdate is the shared body of both checklists' Update. onSelect is the only thing
-// that differs between them — what enter does to the highlighted row — so it is the only
-// thing passed in. The caller returns itself as the screen; this returns only the action.
+// checklistUpdate is both checklists' shared Update; onSelect is what enter does.
 func checklistUpdate(l *list.Model, sh *core.Shared, msg tea.Msg, onSelect func(*core.Shared) core.Action) core.Action {
 	// v2 gives the wheel its own message type, so the kind is in the match rather
 	// than in a field check inside WheelNav.
@@ -76,9 +80,7 @@ func checklistUpdate(l *list.Model, sh *core.Shared, msg tea.Msg, onSelect func(
 	return core.Async(cmd)
 }
 
-// setRowsKeepCursor swaps in freshly built rows without moving the highlight. Both screens
-// rebuild every row on each toggle — that is how the [x] marker updates — and SetItems on its
-// own would send the cursor back to the top after every keystroke.
+// setRowsKeepCursor swaps in rebuilt rows without resetting the highlight.
 func setRowsKeepCursor(l *list.Model, rows []list.Item) {
 	idx := l.Index()
 	l.SetItems(rows)

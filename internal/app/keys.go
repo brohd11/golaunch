@@ -8,10 +8,7 @@ import (
 	"charm.land/bubbles/v2/list"
 )
 
-// keys are golaunch's screen-level bindings. Actions is core.Keys.Actions rather than a
-// copy of it — the picker key is shared by every app on the framework, and aliasing it
-// here is what carries its ctrl+alt+a form in. refineKey lives beside the refine screen
-// it belongs to.
+// keys are golaunch's screen-level bindings. refineKey lives in refine.go.
 var keys = struct {
 	Actions key.Binding // open the Actions menu (theme, update, refresh)
 }{

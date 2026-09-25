@@ -31,12 +31,9 @@ var interpByExt = map[string][]string{
 	".sh": {"bash"},
 }
 
-// Scan reads each directory (non-recursively) for launchable scripts: files with a known
-// extension, or any executable file (run directly). Results are deduplicated by absolute
-// path and sorted by display name. What couldn't be read — an unreadable directory, a
-// script whose header fails to parse — comes back as one error per problem rather than
-// failing the scan or vanishing silently: a typo in one script's header should cost that
-// script a menu row, not its invisibility without a trace.
+// Scan lists launchable scripts in each directory (non-recursive): known extensions or any
+// executable. Results are deduplicated and sorted by name; each problem is returned as its
+// own error.
 func Scan(dirs []string) ([]Script, []error) {
 	seen := map[string]bool{}
 	var out []Script
@@ -92,9 +89,7 @@ type Tree struct {
 	Scripts  []Script
 }
 
-// BuildTree groups scripts into a menu tree by their Path metadata: "Image/Filters" nests the
-// script two levels deep, an empty path lands it at the root. Children and scripts are sorted for
-// a stable menu.
+// BuildTree groups scripts by their Path metadata ("Image/Filters" nests two levels).
 func BuildTree(scripts []Script) *Tree {
 	root := &Tree{}
 	for _, s := range scripts {

@@ -1,7 +1,5 @@
-// Package selection models the set of paths a script runs against. A Selection is built in two
-// stages: a Spec (which kinds of path under the root to gather) resolves to a candidate list of
-// Items, and each Item then carries an On flag the Refine checklist toggles. The enabled subset
-// (Paths) is what actually reaches a script.
+// Package selection models the paths a script runs against: a Spec resolves to Items, and
+// each Item's On flag is toggled in Refine. Paths returns the enabled subset.
 package selection
 
 import (
@@ -12,9 +10,7 @@ import (
 	"sort"
 )
 
-// Spec is the set of build flags chosen in the Build form: which kinds of path to gather from the
-// root, and whether to descend recursively. Dirs and Files are independent (either or both);
-// Current adds the root directory itself.
+// Spec is the Build flags: Dirs and Files are independent; Current adds the root itself.
 type Spec struct {
 	Dirs      bool
 	Files     bool
@@ -40,9 +36,8 @@ type Selection struct {
 	Items []Item
 }
 
-// FromPaths builds a selection from explicit command-line paths. Valid paths are made absolute,
-// classified as files or directories, and enabled in argument order. Invalid paths are omitted and
-// returned as individual problems so a file-manager launch can continue with the rest.
+// FromPaths builds a selection from argv paths. Invalid paths are skipped and returned as
+// errors.
 func FromPaths(paths []string) (Selection, []error) {
 	items := make([]Item, 0, len(paths))
 	var problems []error
@@ -62,11 +57,8 @@ func FromPaths(paths []string) (Selection, []error) {
 	return Selection{Items: items}, problems
 }
 
-// Resolve gathers the candidate paths under root for spec, each enabled by default. Current adds
-// the root itself; otherwise the root's immediate children are read, or every descendant when
-// Recursive. Dirs keeps directories, Files keeps files. Results are sorted and absolute. A read
-// error on the root is returned; errors walking individual descendants are skipped so one
-// unreadable subdir doesn't abort the whole build.
+// Resolve gathers the candidate paths under root, all enabled, sorted and absolute. Only a
+// read error on the root is returned.
 func Resolve(root string, spec Spec) ([]Item, error) {
 	var items []Item
 	if spec.Current {
@@ -89,10 +81,8 @@ func Resolve(root string, spec Spec) ([]Item, error) {
 	return items, nil
 }
 
-// Rebuild resolves spec under root and returns the replacement Selection, carrying the receiver's
-// per-path On flags onto any path that survives — so flipping Recursive on and back off doesn't
-// silently undo a refinement. Paths new to the selection keep Resolve's default of enabled. On
-// error the receiver is left untouched (the caller keeps what it had).
+// Rebuild resolves spec and carries over the On flags of surviving paths. On error the
+// receiver is unchanged.
 func (s Selection) Rebuild(root string, spec Spec) (Selection, error) {
 	items, err := Resolve(root, spec)
 	if err != nil {
@@ -135,9 +125,7 @@ func readImmediate(root string, spec Spec, items *[]Item) error {
 	return nil
 }
 
-// walkDescendants appends every descendant of root matching spec (the root itself is excluded —
-// Current handles it). A per-entry error is swallowed so an unreadable subtree is skipped rather
-// than failing the whole build.
+// walkDescendants appends matching descendants of root, skipping unreadable subtrees.
 func walkDescendants(root string, spec Spec, items *[]Item) error {
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

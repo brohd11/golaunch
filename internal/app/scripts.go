@@ -19,9 +19,8 @@ func NewScriptsScreen(sh *core.Shared) *components.RootListScreen {
 	return components.NewRootList(nodeItems(Of(sh).Root, scripts.BuildTree(Of(sh).Scripts)), rootListOpts(sh, TitleScripts))
 }
 
-// nodeItems builds the rows for one tree node: a submenu-opening row per child group, then a
-// launch row per script, with a placeholder when the node is empty. Recursion builds each subtree's
-// picker lazily inside the group row's Pick.
+// nodeItems builds one tree node's rows: a submenu row per group, a launch row per script, or
+// a placeholder. Subtrees are built lazily.
 func nodeItems(root string, node *scripts.Tree) []list.Item {
 	var items []list.Item
 	for _, child := range node.Children {

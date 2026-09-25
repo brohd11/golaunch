@@ -6,9 +6,8 @@ import (
 	"strings"
 )
 
-// Meta is the launch metadata a script declares in its comment header. Every field is optional:
-// an empty Name falls back to the filename, an empty Path puts the script at the top level, and
-// Terminal defaults to false (stream in the TUI).
+// Meta is a script's header metadata. Every field is optional: Name defaults to the filename,
+// Path to the top level.
 type Meta struct {
 	Name     string // display name in the menu
 	Desc     string // one-line description under the name
@@ -20,10 +19,8 @@ type Meta struct {
 // the very top, so a script with no header costs only a few lines of scanning.
 const maxHeaderLines = 20
 
-// ParseHeader reads the leading comment header of a script for its metadata. It skips a shebang,
-// treats each subsequent "# key=value" comment line as a metadata pair (recognized keys only),
-// and stops at the first line that is neither blank nor a comment (the first line of real code).
-// A missing/unreadable file returns the zero Meta and the error; unknown keys are ignored.
+// ParseHeader reads "# key=value" lines after an optional shebang, stopping at the first line
+// of code. Unknown keys are ignored.
 func ParseHeader(path string) (Meta, error) {
 	f, err := os.Open(path)
 	if err != nil {
